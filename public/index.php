@@ -12,7 +12,8 @@ $configuration = array(
     '{SITE_NAME}'         => 'La meva pàgina'
 );
 // parameter processing
-$parameters = $_GET;
+$parameters = $_GET; //Ha de ser GET per poder accedir a les pàgines
+//Si estem a la pàgina inicial
 if (isset($parameters['page'])) {
     if ($parameters['page'] == 'register') {
         $template = 'register';
@@ -22,6 +23,7 @@ if (isset($parameters['page'])) {
         $template = 'login';
         $configuration['{LOGIN_USERNAME}'] = '';
     }
+  //Si esta a registre de usuaris  
 } else if (isset($parameters['register'])) {
     $db = new PDO($db_connection);
     $sql = 'INSERT INTO users (user_name, user_password) VALUES (:user_name, :user_password)';
@@ -32,10 +34,11 @@ if (isset($parameters['page'])) {
         $configuration['{FEEDBACK}'] = 'Creat el compte <b>' . htmlentities($parameters['user_name']) . '</b>';
         $configuration['{LOGIN_LOGOUT_TEXT}'] = 'Tancar sessió';
     } else {
-        // Això no s'executarà mai (???)
+        // Això no s'executarà mai (???) Sembla que si falla es mostra un fatal error
         $configuration['{FEEDBACK}'] = "<mark>ERROR: No s'ha pogut crear el compte <b>"
             . htmlentities($parameters['user_name']) . '</b></mark>';
-    }
+        }
+  //Si esta a registre de usuaris 
 } else if (isset($parameters['login'])) {
     $db = new PDO($db_connection);
     $sql = 'SELECT * FROM users WHERE user_name = :user_name and user_password = :user_password';
