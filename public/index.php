@@ -15,44 +15,39 @@ $configuration = array(
 );
 
 // parameter processing
+
 $parameters = array_merge($_GET, $_POST);
 
-// NAVEGATION-----------------------------------
-//Si estem a la pàgina inicial
-if (isset($parameters['page'])) {
-    if ($parameters['page'] == 'register') {
-        $template = 'register';
-        $configuration['{REGISTER_USERNAME}'] = '';
-        $configuration['{LOGIN_LOGOUT_TEXT}'] = 'Ja tinc un compte';
-    } else if ($parameters['page'] == 'login') {
-        $template = 'login';
-        $configuration['{LOGIN_USERNAME}'] = '';
-    }
-  //Si esta a registre de usuaris
-} else if (isset($parameters['register'])) {
+// Primer, processar intents de registre o login (POST)
+if (isset($parameters['register'])) {
     $db = new PDO($db_connection);
-    $check = 'SELECT :user_name FROM users';
-    $sql = 'INSERT INTO users (user_name, user_password) VALUES (:user_name, :user_password)';
-    $query = $db->prepare($sql);
+    // Comprovar si l'usuari ja existeix
+    $check = 'SELECT COUNT(*) FROM users WHERE user_name = :user_name';
     $query_check = $db->prepare($check);
-    $query->bindValue(':user_name', $parameters['user_name']);
-    $query->bindValue(':user_password', $parameters['user_password']); //Hay que guardarlo como hash
-    if ($query_check->execute()){
+    $query_check->bindValue(':user_name', $parameters['user_name']);
+    $query_check->execute();
+    $exists = $query_check->fetchColumn();
+    if ($exists) {
         $configuration['{FEEDBACK}'] = "<mark>ERROR: Usuari ja existeix <b>"
                 . htmlentities($parameters['user_name']) . '</b></mark>';
-    }
-    else{
+        $template = 'register';
+        $configuration['{REGISTER_USERNAME}'] = htmlentities($parameters['user_name']);
+        $configuration['{LOGIN_LOGOUT_TEXT}'] = 'Ja tinc un compte';
+    } else {
+        $sql = 'INSERT INTO users (user_name, user_password) VALUES (:user_name, :user_password)';
+        $query = $db->prepare($sql);
+        $query->bindValue(':user_name', $parameters['user_name']);
+        $query->bindValue(':user_password', $parameters['user_password']); // Recomanat: guardar hash
         if ($query->execute() && $query->rowCount() > 0) {
             $configuration['{FEEDBACK}'] = 'Creat el compte <b>' . htmlentities($parameters['user_name']) . '</b>';
             $configuration['{LOGIN_LOGOUT_TEXT}'] = 'Tancar sessió';
         } else {
-            // Això no s'executarà mai (???) Sembla que si falla es mostra un fatal error, 
             $configuration['{FEEDBACK}'] = "<mark>ERROR: No s'ha pogut crear el compte <b>"
                 . htmlentities($parameters['user_name']) . '</b></mark>';
         }
+        $template = 'login';
+        $configuration['{LOGIN_USERNAME}'] = htmlentities($parameters['user_name']);
     }
-    
- //Si esta a registre de usuaris 
 } else if (isset($parameters['login'])) {
     $db = new PDO($db_connection);
     $sql = 'SELECT * FROM users WHERE user_name = :user_name and user_password = :user_password';
@@ -62,13 +57,28 @@ if (isset($parameters['page'])) {
     $query->execute();
     $result_row = $query->fetchObject();
     if ($result_row) {
-        $configuration['{FEEDBACK}'] = '"Sessió" iniciada com <b>' . htmlentities($parameters['user_name']) . '</b>'; //Inicio Falso
+        $configuration['{FEEDBACK}'] = '"Sessió" iniciada com <b>' . htmlentities($parameters['user_name']) . '</b>';
         $configuration['{LOGIN_LOGOUT_TEXT}'] = 'Tancar "sessió"';
         $configuration['{LOGIN_LOGOUT_URL}'] = '/?page=logout';
     } else {
         $configuration['{FEEDBACK}'] = '<mark>ERROR: Usuari desconegut o contrasenya incorrecta</mark>';
+        $template = 'login';
+        $configuration['{LOGIN_USERNAME}'] = htmlentities($parameters['user_name']);
+    }
+} else {
+    // NAVEGACIÓ NORMAL
+    if (isset($parameters['page'])) {
+        if ($parameters['page'] == 'register') {
+            $template = 'register';
+            $configuration['{REGISTER_USERNAME}'] = '';
+            $configuration['{LOGIN_LOGOUT_TEXT}'] = 'Ja tinc un compte';
+        } else if ($parameters['page'] == 'login') {
+            $template = 'login';
+            $configuration['{LOGIN_USERNAME}'] = '';
+        }
     }
 }
+
 // process template and show output
 $html = file_get_contents('plantilla_' . $template . '.html', true);
 $html = str_replace(array_keys($configuration), array_values($configuration), $html);
