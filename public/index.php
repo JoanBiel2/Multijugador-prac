@@ -17,8 +17,8 @@ $configuration = array(
 );
 
 // Si ja hi ha una sessió iniciada, canviar els textos
-if (isset($_SESSION['user_name'])) {
-    $configuration['{FEEDBACK}'] = 'Sessió iniciada com <b>' . htmlentities($_SESSION['user_name']) . '</b>';
+if (isset($_SESSION['user_mail'])) {
+    $configuration['{FEEDBACK}'] = 'Sessió iniciada com <b>' . htmlentities($_SESSION['user_mail']) . '</b>';
     $configuration['{LOGIN_LOGOUT_TEXT}'] = 'Tancar sessió';
     $configuration['{LOGIN_LOGOUT_URL}'] = '/?page=logout';
 }
@@ -46,22 +46,36 @@ if (isset($parameters['register'])) {
         $configuration['{REGISTER_USERNAME}'] = htmlentities($parameters['user_name']);
         $configuration['{LOGIN_LOGOUT_TEXT}'] = 'Ja tinc un compte';
     } else {// Si l'usuari no existeix, el crea
-        // Guardem contrasenya com a hash
-        $passwordHash = password_hash($parameters['user_password'], PASSWORD_DEFAULT);
+        $checkmail = 'SELECT COUNT(*) FROM users WHERE user_mail = :user_mail';
+        $query_check_mail = $db->prepare($checkmail);
+        $query_check_mail->bindValue(':user_mail', $parameters['user_mail']);
+        $query_check_mail->execute();
+        $mail_exists = $query_check_mail->fetchColumn();
 
-        $sql = 'INSERT INTO users (user_name, user_password) VALUES (:user_name, :user_password)';
-        $query = $db->prepare($sql);
-        $query->bindValue(':user_name', $parameters['user_name']);
-        $query->bindValue(':user_password', $passwordHash); // Recomanat: guardar hash
-        if ($query->execute() && $query->rowCount() > 0) {
-            $configuration['{FEEDBACK}'] = 'Creat el compte <b>' . htmlentities($parameters['user_name']) . '</b>';
-            $configuration['{LOGIN_LOGOUT_TEXT}'] = 'Tancar sessió';
+        if ($mail_exists) {
+            $configuration['{FEEDBACK}'] = "<mark>ERROR: Ja existeix un compte amb el correu <b>"
+                . htmlentities($parameters['user_mail']) . '</b></mark>';
         } else {
-            $configuration['{FEEDBACK}'] = "<mark>ERROR: No s'ha pogut crear el compte <b>"
-                . htmlentities($parameters['user_name']) . '</b></mark>';
+            // Guardem contrasenya com a hash
+            $passwordHash = password_hash($parameters['user_password'], PASSWORD_DEFAULT);
+
+            $sql = 'INSERT INTO users (user_name, user_password, user_mail) VALUES (:user_name, :user_password, :user_mail)';
+            $query = $db->prepare($sql);
+            $query->bindValue(':user_name', $parameters['user_name']);
+            $query->bindValue(':user_password', $passwordHash);
+            $query->bindValue(':user_mail', $parameters['user_mail']);
+        
+
+            if ($query->execute() && $query->rowCount() > 0) {
+                $configuration['{FEEDBACK}'] = 'Creat el compte <b>' . htmlentities($parameters['user_name']) . '</b>';
+                $configuration['{LOGIN_LOGOUT_TEXT}'] = 'Tancar sessió';
+            } else {
+                $configuration['{FEEDBACK}'] = "<mark>ERROR: No s'ha pogut crear el compte <b>"
+                    . htmlentities($parameters['user_name']) . '</b></mark>';
+            }
+            $template = 'login';
+            $configuration['{LOGIN_USERNAME}'] = htmlentities($parameters['user_name']);
         }
-        $template = 'login';
-        $configuration['{LOGIN_USERNAME}'] = htmlentities($parameters['user_name']);
     }
 } else if (isset($parameters['login'])) {
     // Connexió a la base de dades per validar usuari i contrasenya
@@ -92,6 +106,7 @@ if (isset($parameters['register'])) {
             // Registrar-se
             $template = 'register';
             $configuration['{REGISTER_USERNAME}'] = '';
+            $configuration['{REGISTER_MAIL}'] = '';
             $configuration['{LOGIN_LOGOUT_TEXT}'] = 'Ja tinc un compte';
         } else if ($parameters['page'] == 'login') {
             // Login
