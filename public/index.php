@@ -112,9 +112,3 @@ if (isset($parameters['register'])) {
 $html = file_get_contents('plantilla_' . $template . '.html', true);
 $html = str_replace(array_keys($configuration), array_values($configuration), $html);
 echo $html;
-
-// DEBUG: mostra el contingut de la sessió PHP
-echo '<pre style="background:#eee; color:#333; padding:1em;">';
-echo '$_SESSION = ';
-var_dump($_SESSION);
-echo '</pre>';
